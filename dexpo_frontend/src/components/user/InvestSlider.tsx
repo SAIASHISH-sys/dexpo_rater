@@ -1,0 +1,67 @@
+import { useState } from 'react'
+import { Building2 } from 'lucide-react'
+import GlassCard from '../ui/GlassCard'
+
+type Props = {
+  company: string
+  onInvest: (amount: number) => void
+}
+
+export default function InvestSlider({ company, onInvest }: Props) {
+  const [amount, setAmount] = useState(1200)
+  const [showConfirm, setShowConfirm] = useState(false)
+
+  const handleInvest = () => {
+    setShowConfirm(true)
+    onInvest(amount)
+    setTimeout(() => setShowConfirm(false), 1800)
+  }
+
+  return (
+    <GlassCard className="p-4">
+      {/* Company badge */}
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-300">
+          <Building2 size={22} />
+        </div>
+        <div>
+          <p className="text-xs text-cyan-200/70">Investing in</p>
+          <p className="text-base font-bold text-white">{company}</p>
+        </div>
+      </div>
+
+      {/* Slider */}
+      <div className="mb-1">
+        <input
+          type="range"
+          min={100}
+          max={5000}
+          step={100}
+          value={amount}
+          onChange={(e) => setAmount(Number(e.target.value))}
+          className="range-slider w-full"
+        />
+      </div>
+
+      <div className="mb-4 flex items-center justify-between text-xs text-cyan-100/60">
+        <span>₹100</span>
+        <span className="rounded-lg bg-emerald-400/15 px-3 py-1 text-base font-bold text-emerald-300">
+          ₹{amount.toLocaleString()}
+        </span>
+        <span>₹5,000</span>
+      </div>
+
+      <button
+        onClick={handleInvest}
+        disabled={showConfirm}
+        className={`w-full rounded-xl py-3 text-sm font-bold transition-all duration-300 ${
+          showConfirm
+            ? 'bg-emerald-500 text-white'
+            : 'bg-gradient-to-r from-emerald-400 to-cyan-300 text-slate-900 hover:shadow-lg hover:shadow-emerald-400/20'
+        }`}
+      >
+        {showConfirm ? '✓ Investment Added!' : 'Invest Now'}
+      </button>
+    </GlassCard>
+  )
+}
