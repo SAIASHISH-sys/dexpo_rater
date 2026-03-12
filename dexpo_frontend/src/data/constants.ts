@@ -1,17 +1,10 @@
 import type { LeaderboardEntry, StallInfo } from '../types'
+import { getAllStallNames } from './stallData'
 
 export const TOTAL_BUDGET = 20000
 
-export const COMPANIES = [
-  'Neon Robotics',
-  'BlueOrbit AI',
-  'GreenGrid Energy',
-  'CloudForge Labs',
-  'AquaNova Systems',
-  'QuantumLeap Tech',
-  'SolarNest Innovations',
-  'CyberWave Labs',
-]
+// Get stall names from stallData
+export const COMPANIES = getAllStallNames()
 
 export const STALL_LEADERBOARD: LeaderboardEntry[] = [
   { rank: 1, name: 'GreenGrid Energy', investment: 18400 },

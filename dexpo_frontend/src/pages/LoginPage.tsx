@@ -8,21 +8,41 @@ export default function LoginPage() {
   const [role, setRole] = useState<LoginRole>('user')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const { login } = useApp()
+  const [isLoading, setIsLoading] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+  const { loginWithCredentials, error, clearError } = useApp()
   const navigate = useNavigate()
 
   const dest = role === 'user' ? '/user/dashboard' : '/stall/profile'
 
   const handleGoogleLogin = () => {
-    login(role)
-    navigate(dest)
+    // Redirect to Google OAuth endpoint
+    window.location.href = 'http://localhost:5000/api/auth/google'
   }
 
-  const handleEmailLogin = (e: React.FormEvent) => {
+  const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email.trim()) return
-    login(role)
-    navigate(dest)
+    if (!email.trim() || !password.trim()) {
+      setErrorMsg('Please enter both email and password')
+      return
+    }
+    
+    setIsLoading(true)
+    setErrorMsg('')
+    clearError()
+    
+    try {
+      const success = await loginWithCredentials(role, email, password)
+      if (success) {
+        navigate(dest)
+      } else {
+        setErrorMsg(error || 'Login failed')
+      }
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Login failed')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -93,6 +113,11 @@ export default function LoginPage() {
 
             {/* Email + Password */}
             <form onSubmit={handleEmailLogin} className="space-y-3">
+              {errorMsg && (
+                <div className="rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-sm text-red-300">
+                  {errorMsg}
+                </div>
+              )}
               <div className="relative">
                 <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-cyan-200/35" />
                 <input
@@ -115,9 +140,10 @@ export default function LoginPage() {
               </div>
               <button
                 type="submit"
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-cyan-300 py-3 text-sm font-bold text-slate-900 transition hover:shadow-lg hover:shadow-emerald-400/20"
+                disabled={isLoading}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-cyan-300 py-3 text-sm font-bold text-slate-900 transition hover:shadow-lg hover:shadow-emerald-400/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Sign In <ArrowRight size={15} />
+                {isLoading ? 'Signing In...' : 'Sign In'} {!isLoading && <ArrowRight size={15} />}
               </button>
             </form>
 

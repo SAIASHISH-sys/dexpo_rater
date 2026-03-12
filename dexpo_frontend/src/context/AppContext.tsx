@@ -1,13 +1,20 @@
-import { createContext, useContext, useState, useCallback } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import type { LoginRole, Investment, UserProfile } from '../types'
 import { COMPANIES, TOTAL_BUDGET } from '../data/constants'
+import { authAPI, investmentAPI, setAuthToken, removeAuthToken } from '../services/api'
+import type { InvestmentWithStall } from '../services/api'
 
 type AppState = {
   // Auth
   isAuthed: boolean
   loginRole: LoginRole
   email: string
+  userId: string | null
+  
+  // Loading states
+  isLoading: boolean
+  error: string | null
 
   // User profile
   userProfile: UserProfile
@@ -21,13 +28,15 @@ type AppState = {
   spentPercent: number
 
   // Actions
-  login: (role: LoginRole) => void
+  loginWithCredentials: (role: LoginRole, email: string, password: string) => Promise<boolean>
   logout: () => void
   setScannedCompany: (company: string) => void
-  addOrUpdateInvestment: (company: string, amount: number) => void
+  addOrUpdateInvestment: (stallId: string, company: string, amount: number) => Promise<void>
   updateInvestment: (id: number, amount: number) => void
-  removeInvestment: (id: number) => void
+  removeInvestment: (investmentId: string) => Promise<void>
   updateUserProfile: (field: keyof UserProfile, value: string) => void
+  fetchUserInvestments: () => Promise<void>
+  clearError: () => void
 }
 
 const AppContext = createContext<AppState | null>(null)
@@ -36,6 +45,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isAuthed, setIsAuthed] = useState(false)
   const [loginRole, setLoginRole] = useState<LoginRole>('user')
   const [email, setEmail] = useState('')
+  const [userId, setUserId] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const [userProfile, setUserProfile] = useState<UserProfile>({
     email: '',
@@ -46,51 +58,136 @@ export function AppProvider({ children }: { children: ReactNode }) {
     interests: '',
   })
 
-  const [investments, setInvestments] = useState<Investment[]>([
-    { id: 1, company: 'Neon Robotics', amount: 2000 },
-    { id: 2, company: 'GreenGrid Energy', amount: 1400 },
-  ])
+  const [investments, setInvestments] = useState<Investment[]>([])
 
   const [scannedCompany, setScannedCompany] = useState(COMPANIES[0])
+
+  // Check if user is already logged in on mount
+  useEffect(() => {
+    const token = localStorage.getItem('authToken')
+    const storedUserId = localStorage.getItem('userId')
+    const storedRole = localStorage.getItem('userRole') as LoginRole
+    const storedEmail = localStorage.getItem('userEmail')
+
+    if (token && storedUserId && storedRole) {
+      setIsAuthed(true)
+      setUserId(storedUserId)
+      setLoginRole(storedRole)
+      setEmail(storedEmail || '')
+      setUserProfile(prev => ({ ...prev, email: storedEmail || '' }))
+      
+      // Fetch investments if user role
+      if (storedRole === 'user') {
+        fetchUserInvestments()
+      }
+    }
+  }, [])
 
   const spent = investments.reduce((sum, item) => sum + item.amount, 0)
   const moneyLeft = Math.max(TOTAL_BUDGET - spent, 0)
   const spentPercent = Math.min((spent / TOTAL_BUDGET) * 100, 100)
 
-  const login = useCallback((role: LoginRole) => {
-    const userEmail =
-      role === 'user' ? 'visitor@deltaexpo.com' : 'stall@deltaexpo.com'
-    setEmail(userEmail)
-    setLoginRole(role)
-    setIsAuthed(true)
-    setUserProfile((prev) => ({ ...prev, email: userEmail }))
+  const loginWithCredentials = useCallback(async (role: LoginRole, email: string, password: string): Promise<boolean> => {
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      const response = role === 'user' 
+        ? await authAPI.userLogin(email, password)
+        : await authAPI.stallLogin(email, password)
+      
+      // Store auth data
+      setAuthToken(response.token)
+      localStorage.setItem('userId', response.u_id)
+      localStorage.setItem('userRole', role)
+      localStorage.setItem('userEmail', email)
+      
+      // Update state
+      setEmail(email)
+      setUserId(response.u_id)
+      setLoginRole(role)
+      setIsAuthed(true)
+      setUserProfile((prev) => ({ ...prev, email }))
+      
+      // Fetch investments if user
+      if (role === 'user') {
+        await fetchUserInvestments()
+      }
+      
+      setIsLoading(false)
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed')
+      setIsLoading(false)
+      return false
+    }
   }, [])
 
   const logout = useCallback(() => {
+    removeAuthToken()
     setIsAuthed(false)
     setLoginRole('user')
     setEmail('')
+    setUserId(null)
+    setInvestments([])
+    setUserProfile({
+      email: '',
+      name: '',
+      mobile: '',
+      city: '',
+      college: '',
+      interests: '',
+    })
   }, [])
 
+  const fetchUserInvestments = useCallback(async () => {
+    if (!isAuthed || loginRole !== 'user') return
+    
+    try {
+      const portfolio = await investmentAPI.getUserPortfolio()
+      
+      // Transform backend investments to frontend format
+      const transformedInvestments: Investment[] = portfolio.investments.map((inv: InvestmentWithStall) => ({
+        id: inv.investment_id as unknown as number,
+        company: inv.stalls.name || inv.stalls.organisations || 'Unknown Company',
+        amount: inv.amount_invested,
+        investmentId: inv.investment_id, // Store original ID for deletion
+        stallId: inv.stall_id,
+      })) as Investment[]
+      
+      setInvestments(transformedInvestments)
+    } catch (err) {
+      console.error('Failed to fetch investments:', err)
+      setError(err instanceof Error ? err.message : 'Failed to fetch investments')
+    }
+  }, [isAuthed, loginRole])
+
   const addOrUpdateInvestment = useCallback(
-    (company: string, amount: number) => {
-      if (amount <= 0) return
-      setInvestments((prev) => {
-        const existing = prev.find((item) => item.company === company)
-        if (existing) {
-          return prev.map((item) =>
-            item.company === company
-              ? { ...item, amount: item.amount + amount }
-              : item,
-          )
-        }
-        return [...prev, { id: Date.now(), company, amount }]
-      })
+    async (stallId: string, _company: string, amount: number) => {
+      if (amount <= 0 || !isAuthed || loginRole !== 'user') return
+      
+      setIsLoading(true)
+      setError(null)
+      
+      try {
+        // Create investment in backend
+        await investmentAPI.createInvestment(stallId, amount)
+        
+        // Refresh investments from backend
+        await fetchUserInvestments()
+        
+        setIsLoading(false)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to create investment')
+        setIsLoading(false)
+        throw err
+      }
     },
-    [],
+    [isAuthed, loginRole, fetchUserInvestments],
   )
 
   const updateInvestment = useCallback((id: number, amount: number) => {
+    // Local update only for now - could be extended to call backend
     setInvestments((prev) =>
       prev.map((item) =>
         item.id === id ? { ...item, amount: Math.max(amount, 0) } : item,
@@ -98,9 +195,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     )
   }, [])
 
-  const removeInvestment = useCallback((id: number) => {
-    setInvestments((prev) => prev.filter((item) => item.id !== id))
-  }, [])
+  const removeInvestment = useCallback(async (investmentId: string) => {
+    if (!isAuthed || loginRole !== 'user') return
+    
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      await investmentAPI.deleteInvestment(investmentId)
+      
+      // Optimistically remove from local state
+      setInvestments((prev) => prev.filter((item) => (item as any).investmentId !== investmentId))
+      
+      setIsLoading(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete investment')
+      setIsLoading(false)
+      throw err
+    }
+  }, [isAuthed, loginRole])
 
   const updateUserProfile = useCallback(
     (field: keyof UserProfile, value: string) => {
@@ -109,12 +222,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [],
   )
 
+  const clearError = useCallback(() => {
+    setError(null)
+  }, [])
+
   return (
     <AppContext.Provider
       value={{
         isAuthed,
         loginRole,
         email,
+        userId,
+        isLoading,
+        error,
         userProfile,
         investments,
         scannedCompany,
@@ -122,13 +242,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         spent,
         moneyLeft,
         spentPercent,
-        login,
+        loginWithCredentials,
         logout,
         setScannedCompany,
         addOrUpdateInvestment,
         updateInvestment,
         removeInvestment,
         updateUserProfile,
+        fetchUserInvestments,
+        clearError,
       }}
     >
       {children}

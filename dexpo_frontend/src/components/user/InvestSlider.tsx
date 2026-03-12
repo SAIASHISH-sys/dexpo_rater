@@ -5,9 +5,10 @@ import GlassCard from '../ui/GlassCard'
 type Props = {
   company: string
   onInvest: (amount: number) => void
+  isLoading?: boolean
 }
 
-export default function InvestSlider({ company, onInvest }: Props) {
+export default function InvestSlider({ company, onInvest, isLoading = false }: Props) {
   const [amount, setAmount] = useState(1200)
   const [showConfirm, setShowConfirm] = useState(false)
 
@@ -53,14 +54,14 @@ export default function InvestSlider({ company, onInvest }: Props) {
 
       <button
         onClick={handleInvest}
-        disabled={showConfirm}
-        className={`w-full rounded-xl py-3 text-sm font-bold transition-all duration-300 ${
+        disabled={showConfirm || isLoading}
+        className={`w-full rounded-xl py-3 text-sm font-bold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
           showConfirm
             ? 'bg-emerald-500 text-white'
             : 'bg-gradient-to-r from-emerald-400 to-cyan-300 text-slate-900 hover:shadow-lg hover:shadow-emerald-400/20'
         }`}
       >
-        {showConfirm ? '✓ Investment Added!' : 'Invest Now'}
+        {isLoading ? 'Processing...' : showConfirm ? '✓ Investment Added!' : 'Invest Now'}
       </button>
     </GlassCard>
   )

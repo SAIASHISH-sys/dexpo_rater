@@ -25,6 +25,7 @@ passport.use(
                             name: profile.displayName || 'Unnamed Stall',
                             organisations: 'Startup',
                             about: ' ',
+                            google_oauth: 'google_oauth_placeholder', // Placeholder password for Google-authenticated users
                         },
                     });
                 }
@@ -38,10 +39,10 @@ passport.use(
 );
 
 passport.serializeUser((user: any, done: Function) => {
-    done(null, user.id);
+    done(null, user.stall_id);
 });
 
-passport.deserializeUser(async (id: number, done: Function) => {
+passport.deserializeUser(async (id: string, done: Function) => {
     try {
         const stall = await prisma.stalls.findUnique({ where: { stall_id: id } });
         done(null, stall);

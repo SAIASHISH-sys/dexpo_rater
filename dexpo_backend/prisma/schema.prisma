@@ -24,13 +24,15 @@ model stalls {
   organisations org_type
   about         String?
   invested_sum  Decimal?      @default(0.00) @db.Decimal(12, 2)
+  password      String?       @db.VarChar
+  google_oauth  String?       @unique @db.VarChar
   investments   investments[]
 }
 
 model users {
   u_id        String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   email_id    String        @unique
-  password    String
+  password    String        @db.VarChar
   sum         Decimal?      @default(0.00) @db.Decimal(12, 2)
   investments investments[]
 }

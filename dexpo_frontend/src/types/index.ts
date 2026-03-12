@@ -4,6 +4,8 @@ export type Investment = {
   id: number
   company: string
   amount: number
+  investmentId?: string // For backend operations
+  stallId?: string // For backend operations
 }
 
 export type LeaderboardEntry = {

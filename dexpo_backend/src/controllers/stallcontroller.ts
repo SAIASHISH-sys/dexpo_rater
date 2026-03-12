@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import prisma from "../config/db";
 
 export const getStallById = async (req: Request, res: Response) => {
-    const { stall_id } = req.params;
+    const stall_id = req.params.stall_id as string;
     try {
         const stall = await prisma.stalls.findUnique({
             where: { stall_id: stall_id } },
