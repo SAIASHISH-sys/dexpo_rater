@@ -4,7 +4,6 @@ import { useApp } from '../../context/AppContext'
 import Header from '../../components/ui/Header'
 import BottomNav from '../../components/ui/BottomNav'
 import QRScanner from '../../components/user/QRScanner'
-import MoneyBar from '../../components/user/MoneyBar'
 import InvestSlider from '../../components/user/InvestSlider'
 import InvestmentAccordion from '../../components/user/InvestmentAccordion'
 import InvestmentStats from '../../components/user/InvestmentStats'
@@ -18,7 +17,6 @@ export default function UserDashboard() {
     investments,
     spent,
     moneyLeft,
-    spentPercent,
     totalBudget,
     addOrUpdateInvestment,
     isLoading,
@@ -76,12 +74,6 @@ export default function UserDashboard() {
         </div>
 
         <div className="glass-group">
-          <MoneyBar
-            spent={spent}
-            moneyLeft={moneyLeft}
-            spentPercent={spentPercent}
-            totalBudget={totalBudget}
-          />
           <InvestSlider
             company={scannedCompany}
             onInvest={handleInvest}
