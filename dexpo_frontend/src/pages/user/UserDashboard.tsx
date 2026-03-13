@@ -54,7 +54,7 @@ export default function UserDashboard() {
   }
 
   return (
-    <main className="min-h-screen app-bg px-4 pb-24 pt-6 text-slate-100">
+    <main className="min-h-screen app-bg px-4 pb-32 pt-6 text-slate-100">
       <div className="mx-auto w-full max-w-4xl space-y-2">
         <Header tag="USER PORTAL" title="Dashboard" onLogout={handleLogout} />
 
