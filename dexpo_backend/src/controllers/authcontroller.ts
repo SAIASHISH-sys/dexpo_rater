@@ -24,10 +24,11 @@ export const userLogin = async (req: Request, res: Response) => {
     const user = await prisma.users.findUnique({ where: { email_id } });
     if (!user) {
         const hashedPassword = await bcrypt.hash(password, 10);
-        const user = await prisma.users.create({
+        const newUser = await prisma.users.create({
             data: {email_id, password: hashedPassword}
         })
-        res.status(201).json({message : 'user created successfully', user });}
+        const token = jwt.sign({ u_id: newUser.u_id, email: newUser.email_id}, JWT_SECRET, { expiresIn: '1h' });
+        res.status(201).json({message : 'user created successfully', token, u_id: newUser.u_id });}
 
     else if (user && ( await bcrypt.compare(password, user.password))) {
         const token = jwt.sign({ u_id: user.u_id, email: user.email_id}, JWT_SECRET, { expiresIn: '1h' });

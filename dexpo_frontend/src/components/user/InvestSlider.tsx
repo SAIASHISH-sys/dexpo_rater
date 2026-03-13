@@ -6,13 +6,18 @@ type Props = {
   company: string
   onInvest: (amount: number) => void
   isLoading?: boolean
+  moneyLeft?: number
 }
 
-export default function InvestSlider({ company, onInvest, isLoading = false }: Props) {
-  const [amount, setAmount] = useState(1200)
+export default function InvestSlider({ company, onInvest, isLoading = false, moneyLeft = 20000 }: Props) {
+  const maxAmount = Math.min(5000, moneyLeft)
+  const [amount, setAmount] = useState(Math.min(1200, maxAmount))
   const [showConfirm, setShowConfirm] = useState(false)
 
+  const canInvest = moneyLeft > 0 && !isLoading && !!company && amount <= moneyLeft
+
   const handleInvest = () => {
+    if (!canInvest) return
     setShowConfirm(true)
     onInvest(amount)
     setTimeout(() => setShowConfirm(false), 1800)
@@ -36,7 +41,7 @@ export default function InvestSlider({ company, onInvest, isLoading = false }: P
         <input
           type="range"
           min={100}
-          max={5000}
+          max={maxAmount}
           step={100}
           value={amount}
           onChange={(e) => setAmount(Number(e.target.value))}
@@ -49,19 +54,19 @@ export default function InvestSlider({ company, onInvest, isLoading = false }: P
         <span className="rounded-lg bg-emerald-400/15 px-3 py-1 text-base font-bold text-emerald-300">
           ₹{amount.toLocaleString()}
         </span>
-        <span>₹5,000</span>
+        <span>₹{maxAmount.toLocaleString()}</span>
       </div>
 
       <button
         onClick={handleInvest}
-        disabled={!company || showConfirm || isLoading}
+        disabled={!canInvest || showConfirm}
         className={`w-full rounded-xl py-3 text-sm font-bold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
           showConfirm
             ? 'bg-emerald-500 text-white'
             : 'bg-gradient-to-r from-emerald-400 to-cyan-300 text-slate-900 hover:shadow-lg hover:shadow-emerald-400/20'
         }`}
       >
-        {!company ? 'Select a company first' : isLoading ? 'Processing...' : showConfirm ? '✓ Investment Added!' : 'Invest Now'}
+        {!company ? 'Select a company first' : moneyLeft <= 0 ? 'Budget Exhausted' : isLoading ? 'Processing...' : showConfirm ? '✓ Investment Added!' : 'Invest Now'}
       </button>
     </GlassCard>
   )

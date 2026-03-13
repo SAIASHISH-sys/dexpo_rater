@@ -5,6 +5,7 @@ import { parse } from "node:path";
 export const createInvestment = async (req: Request, res: Response) => {
     const { stall_id, amount_invested } = req.body;
     const u_id = req.user?.u_id; //from jwt middleware
+    const BUDGET_LIMIT = 20000; // ₹20,000 max budget
 
     console.log('createInvestment - req.user:', req.user);
     console.log('createInvestment - u_id:', u_id);
@@ -15,11 +16,44 @@ export const createInvestment = async (req: Request, res: Response) => {
     }
 
     try {
+        const amount = parseFloat(amount_invested);
+
+        // Validate amount
+        if (amount < 100) {
+            return res.status(400).json({ message: 'Investment must be at least ₹100' });
+        }
+
+        // Get user's current total investments
+        const userData = await prisma.users.findUnique({
+            where: { u_id },
+            include: {
+                investments: true,
+            },
+        });
+
+        if (!userData) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Calculate total invested so far
+        const totalInvested = userData.investments.reduce(
+            (sum, inv) => sum + parseFloat(inv.amount_invested.toString()),
+            0
+        );
+
+        // Check if new investment would exceed budget
+        if (totalInvested + amount > BUDGET_LIMIT) {
+            return res.status(400).json({
+                message: `Investment exceeds budget limit. You have ₹${BUDGET_LIMIT - totalInvested} remaining.`,
+                remaining: BUDGET_LIMIT - totalInvested,
+            });
+        }
+
         const investment = await prisma.investments.create({
             data: {
                 user_id: u_id,
                 stall_id,
-                amount_invested: parseFloat(amount_invested),
+                amount_invested: amount,
             },
         });
         res.status(201).json(investment);

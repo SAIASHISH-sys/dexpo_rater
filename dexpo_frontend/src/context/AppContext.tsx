@@ -184,6 +184,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addOrUpdateInvestment = useCallback(
     async (stallId: string, company: string, amount: number) => {
+      // Calculate current spent
+      const currentSpent = investments.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
+      const remainingBudget = TOTAL_BUDGET - currentSpent
+
       // Validation
       if (amount < 100 || !isAuthed || loginRole !== 'user' || !stallId) {
         setError('Investment must be at least ₹100')
@@ -191,9 +195,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return
       }
       
-      // Check if investment exceeds total budget
-      if (amount > TOTAL_BUDGET) {
-        setError('Investment exceeds your total budget of ₹20,000')
+      // Check if investment exceeds remaining budget
+      if (amount > remainingBudget) {
+        setError(`Cannot invest ₹${amount.toLocaleString()}. Only ₹${remainingBudget.toLocaleString()} remaining in your budget.`)
         return
       }
       
@@ -216,7 +220,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         throw err
       }
     },
-    [isAuthed, loginRole, fetchUserInvestments],
+    [isAuthed, loginRole, fetchUserInvestments, investments],
   )
 
   const updateInvestment = useCallback((id: number, amount: number) => {

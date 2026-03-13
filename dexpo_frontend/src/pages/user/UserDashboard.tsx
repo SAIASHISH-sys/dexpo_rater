@@ -7,6 +7,7 @@ import QRScanner from '../../components/user/QRScanner'
 import MoneyBar from '../../components/user/MoneyBar'
 import InvestSlider from '../../components/user/InvestSlider'
 import InvestmentAccordion from '../../components/user/InvestmentAccordion'
+import InvestmentStats from '../../components/user/InvestmentStats'
 import CompanyDashboard from '../../components/user/CompanyDashboard'
 
 export default function UserDashboard() {
@@ -20,8 +21,6 @@ export default function UserDashboard() {
     spentPercent,
     totalBudget,
     addOrUpdateInvestment,
-    updateInvestment,
-    removeInvestment,
     isLoading,
     error,
     stalls,
@@ -56,17 +55,6 @@ export default function UserDashboard() {
     }
   }
 
-  const handleRemove = async (id: number) => {
-    const investment = investments.find(inv => inv.id === id)
-    if (investment && (investment as any).investmentId) {
-      try {
-        await removeInvestment((investment as any).investmentId)
-      } catch (err) {
-        console.error('Failed to remove investment:', err)
-      }
-    }
-  }
-
   return (
     <main className="min-h-screen app-bg px-4 pb-24 pt-6 text-slate-100">
       <div className="mx-auto w-full max-w-4xl space-y-2">
@@ -98,13 +86,19 @@ export default function UserDashboard() {
             company={scannedCompany}
             onInvest={handleInvest}
             isLoading={isLoading}
+            moneyLeft={moneyLeft}
           />
         </div>
 
+        <InvestmentStats
+          spent={spent}
+          moneyLeft={moneyLeft}
+          totalBudget={totalBudget}
+          investmentCount={investments.length}
+        />
+
         <InvestmentAccordion
           investments={investments}
-          onUpdate={updateInvestment}
-          onRemove={handleRemove}
         />
       </div>
 
