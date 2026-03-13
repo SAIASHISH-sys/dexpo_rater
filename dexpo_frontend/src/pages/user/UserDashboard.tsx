@@ -1,7 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { LayoutDashboard, User } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
-import { getStallByName } from '../../data/stallData'
 import Header from '../../components/ui/Header'
 import BottomNav from '../../components/ui/BottomNav'
 import QRScanner from '../../components/user/QRScanner'
@@ -25,6 +24,7 @@ export default function UserDashboard() {
     removeInvestment,
     isLoading,
     error,
+    stalls,
   } = useApp()
 
   const navigate = useNavigate()
@@ -35,21 +35,22 @@ export default function UserDashboard() {
     navigate('/')
   }
 
-  // Get stall ID from scanned company name
-  const getStallIdForCompany = (companyName: string): string => {
-    const stall = getStallByName(companyName)
-    return stall?.stall_id || ''
-  }
-
   const handleInvest = async (amount: number) => {
-    const stallId = getStallIdForCompany(scannedCompany)
-    if (!stallId) {
-      console.error('No stall ID found for company:', scannedCompany)
+    if (!scannedCompany) {
+      console.error('No company selected')
       return
     }
     
     try {
-      await addOrUpdateInvestment(stallId, scannedCompany, amount)
+      // Find the stall with matching name
+      const stall = stalls.find(s => s.name === scannedCompany)
+      if (!stall) {
+        console.error('Stall not found for company:', scannedCompany)
+        return
+      }
+      
+      // Pass the actual stall_id
+      await addOrUpdateInvestment(stall.stall_id, scannedCompany, amount)
     } catch (err) {
       console.error('Investment failed:', err)
     }
@@ -81,6 +82,7 @@ export default function UserDashboard() {
           <QRScanner
             activeCompany={scannedCompany}
             onScan={(code) => setScannedCompany(code)}
+            stalls={stalls}
           />
           <CompanyDashboard company={scannedCompany} />
         </div>

@@ -2,8 +2,8 @@ import { createContext, useContext, useState, useCallback, useEffect } from 'rea
 import type { ReactNode } from 'react'
 import type { LoginRole, Investment, UserProfile } from '../types'
 import { COMPANIES, TOTAL_BUDGET } from '../data/constants'
-import { authAPI, investmentAPI, setAuthToken, removeAuthToken } from '../services/api'
-import type { InvestmentWithStall } from '../services/api'
+import { authAPI, investmentAPI, setAuthToken, removeAuthToken, stallAPI } from '../services/api'
+import type { InvestmentWithStall, Stall } from '../services/api'
 
 type AppState = {
   // Auth
@@ -18,6 +18,9 @@ type AppState = {
 
   // User profile
   userProfile: UserProfile
+
+  // Stalls data
+  stalls: Stall[]
 
   // Investments
   investments: Investment[]
@@ -48,6 +51,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [stalls, setStalls] = useState<Stall[]>([])
 
   const [userProfile, setUserProfile] = useState<UserProfile>({
     email: '',
@@ -61,6 +65,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [investments, setInvestments] = useState<Investment[]>([])
 
   const [scannedCompany, setScannedCompany] = useState(COMPANIES[0])
+
+  // Fetch stalls data on mount
+  useEffect(() => {
+    const fetchStalls = async () => {
+      try {
+        const stallsData = await stallAPI.getAllStalls()
+        console.log('📊 Fetched stalls from backend:', stallsData.map(s => s.name))
+        setStalls(stallsData)
+      } catch (err) {
+        console.error('Failed to fetch stalls:', err)
+      }
+    }
+    fetchStalls()
+  }, [])
+
+  // Define fetchUserInvestments early so it can be used in the auth check useEffect
+  const fetchUserInvestments = useCallback(async () => {
+    if (!isAuthed || loginRole !== 'user') return
+    
+    try {
+      const portfolio = await investmentAPI.getUserPortfolio()
+      
+      // Transform backend investments to frontend format
+      const transformedInvestments: Investment[] = portfolio.investments.map((inv: InvestmentWithStall) => ({
+        id: inv.investment_id as unknown as number,
+        company: inv.stalls.name || inv.stalls.organisations || 'Unknown Company',
+        amount: Number(inv.amount_invested) || 0, // Convert to number to prevent string concatenation
+        investmentId: inv.investment_id, // Store original ID for deletion
+        stallId: inv.stall_id,
+      })) as Investment[]
+      
+      setInvestments(transformedInvestments)
+    } catch (err) {
+      console.error('Failed to fetch investments:', err)
+      setError(err instanceof Error ? err.message : 'Failed to fetch investments')
+    }
+  }, [isAuthed, loginRole])
 
   // Check if user is already logged in on mount
   useEffect(() => {
@@ -81,9 +122,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         fetchUserInvestments()
       }
     }
-  }, [])
+  }, [fetchUserInvestments])
 
-  const spent = investments.reduce((sum, item) => sum + item.amount, 0)
+  // Ensure amounts are numbers before calculating - convert strings to numbers
+  const spent = investments.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
   const moneyLeft = Math.max(TOTAL_BUDGET - spent, 0)
   const spentPercent = Math.min((spent / TOTAL_BUDGET) * 100, 100)
 
@@ -140,37 +182,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  const fetchUserInvestments = useCallback(async () => {
-    if (!isAuthed || loginRole !== 'user') return
-    
-    try {
-      const portfolio = await investmentAPI.getUserPortfolio()
-      
-      // Transform backend investments to frontend format
-      const transformedInvestments: Investment[] = portfolio.investments.map((inv: InvestmentWithStall) => ({
-        id: inv.investment_id as unknown as number,
-        company: inv.stalls.name || inv.stalls.organisations || 'Unknown Company',
-        amount: inv.amount_invested,
-        investmentId: inv.investment_id, // Store original ID for deletion
-        stallId: inv.stall_id,
-      })) as Investment[]
-      
-      setInvestments(transformedInvestments)
-    } catch (err) {
-      console.error('Failed to fetch investments:', err)
-      setError(err instanceof Error ? err.message : 'Failed to fetch investments')
-    }
-  }, [isAuthed, loginRole])
-
   const addOrUpdateInvestment = useCallback(
-    async (stallId: string, _company: string, amount: number) => {
-      if (amount <= 0 || !isAuthed || loginRole !== 'user') return
+    async (stallId: string, company: string, amount: number) => {
+      // Validation
+      if (amount < 100 || !isAuthed || loginRole !== 'user' || !stallId) {
+        setError('Investment must be at least ₹100')
+        console.error('Invalid investment:', { stallId, company, amount, isAuthed, loginRole })
+        return
+      }
+      
+      // Check if investment exceeds total budget
+      if (amount > TOTAL_BUDGET) {
+        setError('Investment exceeds your total budget of ₹20,000')
+        return
+      }
       
       setIsLoading(true)
       setError(null)
       
       try {
-        // Create investment in backend
+        console.log('Creating investment:', { stallId, company, amount })
+        // Create investment in backend using the stallId
         await investmentAPI.createInvestment(stallId, amount)
         
         // Refresh investments from backend
@@ -178,7 +210,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         
         setIsLoading(false)
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to create investment')
+        const errorMsg = err instanceof Error ? err.message : 'Failed to create investment'
+        setError(errorMsg)
         setIsLoading(false)
         throw err
       }
@@ -236,6 +269,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         isLoading,
         error,
         userProfile,
+        stalls,
         investments,
         scannedCompany,
         totalBudget: TOTAL_BUDGET,

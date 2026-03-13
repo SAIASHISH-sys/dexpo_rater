@@ -29,15 +29,25 @@ export const isAuthenticatedStall = (req: any, res: Response, next: NextFunction
 
 export const authenticateUserJWT = (req: any, res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization;
-    if(!authHeader || !authHeader.startsWith('Bearer ')) {
+    if(!authHeader) {
+        console.log('No authorization header provided');
         return res.status(401).json({ message: 'No token provided' });
     }
+    if(!authHeader.startsWith('Bearer ')) {
+        console.log('Invalid authorization header format:', authHeader);
+        return res.status(401).json({ message: 'Invalid token format' });
+    }
     const token = authHeader.split(' ')[1];
+    if(!token) {
+        console.log('No token found after Bearer');
+        return res.status(401).json({ message: 'No token provided' });
+    }
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
         req.user = decoded;
         next();
     } catch (err) {
-        res.status(401).json({ message: 'Invalid token' });
+        console.log('JWT verification failed:', err instanceof Error ? err.message : err);
+        res.status(401).json({ message: 'Invalid token', error: err instanceof Error ? err.message : 'Unknown error' });
     }
-}
+};

@@ -6,7 +6,11 @@ export const createInvestment = async (req: Request, res: Response) => {
     const { stall_id, amount_invested } = req.body;
     const u_id = req.user?.u_id; //from jwt middleware
 
+    console.log('createInvestment - req.user:', req.user);
+    console.log('createInvestment - u_id:', u_id);
+
     if (!u_id) {
+        console.log('Unauthorized: No user ID in request');
         return res.status(401).json({ message: 'Unauthorized' });
     }
 
@@ -20,7 +24,8 @@ export const createInvestment = async (req: Request, res: Response) => {
         });
         res.status(201).json(investment);
     } catch (error) {
-        res.status(500).json({ message: 'Error creating investment' });
+        console.error('Error creating investment:', error);
+        res.status(500).json({ message: 'Error creating investment', error: error instanceof Error ? error.message : 'Unknown error' });
     }
 };
 
@@ -50,8 +55,28 @@ export const getUserInvestments = async (req: Request, res: Response) => {
 
 export const deleteInvestment = async (req: Request, res: Response) => {
     const investment_id = req.params.investment_id as string;
-    await prisma.investments.delete({
-        where: { investment_id: investment_id } },
-    );
-    res.status(200).json({ message: 'Investment deleted successfully' });
+    const u_id = req.user?.u_id;
+
+    if (!u_id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    try {
+        // Verify the investment belongs to the user
+        const investment = await prisma.investments.findUnique({
+            where: { investment_id }
+        });
+
+        if (!investment || investment.user_id !== u_id) {
+            return res.status(403).json({ message: 'Forbidden: Cannot delete this investment' });
+        }
+
+        await prisma.investments.delete({
+            where: { investment_id }
+        });
+        res.status(200).json({ message: 'Investment deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting investment:', error);
+        res.status(500).json({ message: 'Error deleting investment', error: error instanceof Error ? error.message : 'Unknown error' });
+    }
 }

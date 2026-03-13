@@ -1,13 +1,15 @@
 import { useState, useRef, useEffect } from 'react'
 import { ScanLine, Camera, X, Type } from 'lucide-react'
 import GlassCard from '../ui/GlassCard'
+import type { Stall } from '../../services/api'
 
 type Props = {
   onScan: (code: string) => void
   activeCompany: string
+  stalls?: Stall[]
 }
 
-export default function QRScanner({ onScan, activeCompany }: Props) {
+export default function QRScanner({ onScan, activeCompany, stalls = [] }: Props) {
   const [mode, setMode] = useState<'camera' | 'text'>('camera')
   const [textInput, setTextInput] = useState('')
   const [scanning, setScanning] = useState(false)
@@ -18,19 +20,21 @@ export default function QRScanner({ onScan, activeCompany }: Props) {
     if (!scanning) return
     const timer = setTimeout(() => {
       setScanning(false)
-      // Simulate a successful scan with a random company
-      const companies = [
-        'Neon Robotics',
-        'BlueOrbit AI',
-        'GreenGrid Energy',
-        'CloudForge Labs',
-        'AquaNova Systems',
-      ]
+      // Use real stalls from database, fallback to defaults if not available
+      const companies = stalls.length > 0 
+        ? stalls.map(s => s.name)
+        : [
+            'Neon Robotics',
+            'BlueOrbit AI',
+            'GreenGrid Energy',
+            'CloudForge Labs',
+            'AquaNova Systems',
+          ]
       const pick = companies[Math.floor(Math.random() * companies.length)]
       onScan(pick)
     }, 2200)
     return () => clearTimeout(timer)
-  }, [scanning, onScan])
+  }, [scanning, onScan, stalls])
 
   const handleTextScan = () => {
     if (!textInput.trim()) return

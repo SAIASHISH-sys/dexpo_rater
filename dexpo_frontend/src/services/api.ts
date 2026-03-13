@@ -118,10 +118,16 @@ export type Stall = {
   email_id: string;
   organisations?: string;
   about?: string;
+  google_oauth?: string;
   password?: string;
 };
 
 export const stallAPI = {
+  getAllStalls: () =>
+    apiRequest<Stall[]>('/stalls/stalls', {
+      method: 'GET',
+    }),
+
   getStallById: (stall_id: string) =>
     apiRequest<Stall>(`/stalls/stalls/${stall_id}`, {
       method: 'GET',
